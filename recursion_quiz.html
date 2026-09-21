@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>再帰トレース道場 — 行きがけ・帰りがけ100本ノック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<style>
+  :root {
+    --bg: #0F1117;
+    --bg-raised: #171A23;
+    --bg-card: #1B1F2A;
+    --border: #2A2F3D;
+    --border-soft: #232733;
+    --text: #E7E9EF;
+    --text-dim: #9AA1B4;
+    --text-faint: #6B7288;
+    --accent: #E8B339;
+    --accent-dim: #A9822E;
+    --good: #4FD1C5;
+    --good-bg: #133432;
+    --bad: #FF7A7A;
+    --bad-bg: #3A1C22;
+    --code-bg: #12141C;
+    --code-border: #262A38;
+    --code-text: #E7E9EF;
+    --code-text-dim: #9AA1B4;
+    --code-keyword: #F6A0C7;
+    --code-string: #A8E6A1;
+    --code-number: #F6C177;
+    --code-function: #7FD8E8;
+    --code-punct: #9AA1B4;
+    --code-comment: #6B7288;
+    --radius: 10px;
+    --font-ui: 'Space Grotesk', system-ui, sans-serif;
+    --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F3F2ED;
+      --bg-raised: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --border: #DEDBD1;
+      --border-soft: #E7E4DA;
+      --text: #211F1A;
+      --text-dim: #5C594F;
+      --text-faint: #8C887B;
+      --accent: #B4780F;
+      --accent-dim: #8A5D0C;
+      --good: #0F7A6C;
+      --good-bg: #E1F3EF;
+      --bad: #C24545;
+      --bad-bg: #FBE7E7;
+      --code-bg: #1B1E27;
+      --code-border: #2A2E3B;
+      color-scheme: light;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0F1117;
+    --bg-raised: #171A23;
+    --bg-card: #1B1F2A;
+    --border: #2A2F3D;
+    --border-soft: #232733;
+    --text: #E7E9EF;
+    --text-dim: #9AA1B4;
+    --text-faint: #6B7288;
+    --accent: #E8B339;
+    --accent-dim: #A9822E;
+    --good: #4FD1C5;
+    --good-bg: #133432;
+    --bad: #FF7A7A;
+    --bad-bg: #3A1C22;
+    --code-bg: #12141C;
+    --code-border: #262A38;
+    color-scheme: dark;
+  }
+
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { height: 100%; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 28px 18px 64px;
+  }
+
+  /* ---------- Header ---------- */
+  header.top {
+    margin-bottom: 20px;
+  }
+
+  .eyebrow-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.9rem);
+    letter-spacing: -0.01em;
+    margin: 0 0 4px;
+    line-height: 1.2;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    margin: 0 0 18px;
+    max-width: 60ch;
+    line-height: 1.5;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 18px;
+    font-family: var(--font-code);
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+  }
+
+  .stats-row b { color: var(--text); font-weight: 600; }
+  .stats-row .good-text { color: var(--good); }
+  .stats-row .bad-text { color: var(--bad); }
+
+  .progress-track {
+    margin-top: 10px;
+    height: 6px;
+    border-radius: 4px;
+    background: var(--border-soft);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width .3s ease;
+  }
+
+  /* ---------- Mode + filter controls ---------- */
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    width: fit-content;
+    gap: 2px;
+  }
+  .mode-toggle button {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  .mode-toggle button.active {
+    background: var(--accent);
+    color: #1A1300;
+  }
+
+  .chip-row {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .chip-row::-webkit-scrollbar { height: 5px; }
+  .chip-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .chip {
+    flex: 0 0 auto;
+    font-family: var(--font-code);
+    font-size: 0.76rem;
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .chip[data-active="true"] {
+    border-color: var(--cat-color, var(--accent));
+    color: var(--text);
+    background: color-mix(in srgb, var(--cat-color, var(--accent)) 16%, var(--bg-raised));
+  }
+  .chip .count { color: var(--text-faint); margin-left: 4px; }
+
+  /* ---------- Card ---------- */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+    position: relative;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .cat-tag {
+    font-family: var(--font-code);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--cat-color) 18%, transparent);
+    color: var(--cat-color);
+    border: 1px solid color-mix(in srgb, var(--cat-color) 45%, transparent);
+  }
+
+  .q-index {
+    font-family: var(--font-code);
+    font-size: 0.78rem;
+    color: var(--text-faint);
+  }
+
+  pre[class*="language-"] {
+    background: var(--code-bg) !important;
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--font-code);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 0 0 16px;
+    color: var(--code-text) !important;
+  }
+  code[class*="language-"] {
+    font-family: var(--font-code) !important;
+    text-shadow: none !important;
+    color: var(--code-text) !important;
+    background: none !important;
+  }
+
+  /* Prism token colors — fixed regardless of light/dark page theme,
+     since the code block itself always uses a dark "console" background */
+  .token.comment { color: var(--code-comment); font-style: italic; }
+  .token.keyword,
+  .token.control-flow { color: var(--code-keyword); }
+  .token.string,
+  .token.template-string { color: var(--code-string); }
+  .token.number,
+  .token.boolean { color: var(--code-number); }
+  .token.function { color: var(--code-function); }
+  .token.punctuation,
+  .token.operator { color: var(--code-punct); }
+  .token.interpolation-punctuation,
+  .token.interpolation { color: var(--code-text); }
+  .token.constant,
+  .token.class-name { color: var(--code-number); }
+
+  .tree-ascii {
+    font-family: var(--font-code);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--code-text-dim);
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 14px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .prompt-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0 0 18px;
+    white-space: pre-line;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .opt-btn {
+    text-align: left;
+    font-family: var(--font-code);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+    word-break: break-word;
+  }
+  .opt-btn:hover:not(:disabled) {
+    border-color: var(--accent-dim);
+  }
+  .opt-btn:disabled { cursor: default; }
+  .opt-btn.correct {
+    background: var(--good-bg);
+    border-color: var(--good);
+    color: var(--good);
+  }
+  .opt-btn.incorrect {
+    background: var(--bad-bg);
+    border-color: var(--bad);
+    color: var(--bad);
+  }
+  .opt-btn.reveal-correct {
+    border-color: var(--good);
+    color: var(--good);
+  }
+
+  .explain {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-soft);
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--text-dim);
+    display: none;
+  }
+  .explain.show { display: block; }
+  .explain .verdict {
+    font-weight: 600;
+    font-family: var(--font-ui);
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.92rem;
+  }
+  .explain .verdict.good { color: var(--good); }
+  .explain .verdict.bad { color: var(--bad); }
+
+  .flash-reveal-btn {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.86rem;
+    background: var(--accent);
+    color: #1A1300;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 10px;
+  }
+
+  .nav-btn {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .nav-btn:hover { border-color: var(--accent-dim); }
+  .nav-btn:disabled { opacity: 0.35; cursor: default; }
+  .nav-btn.primary {
+    background: var(--accent);
+    color: #1A1300;
+    border-color: var(--accent);
+  }
+
+  .jump-input {
+    font-family: var(--font-code);
+    font-size: 0.8rem;
+    width: 52px;
+    text-align: center;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 4px;
+  }
+
+  footer.foot {
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 0.76rem;
+    margin-top: 26px;
+    font-family: var(--font-code);
+  }
+
+  button:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow-row">
+      <h1>再帰トレース道場<br><span class="accent">行きがけ・帰りがけ 100本ノック</span></h1>
+    </div>
+    <p class="subtitle">JavaScript の再帰関数をコードで読み、実行順序と各コンテキストの変数の値を手で追いかけて理解するための練習問題集です。</p>
+    <div class="stats-row">
+      <span>進捗 <b id="stat-progress">0 / 100</b></span>
+      <span>正解 <b class="good-text" id="stat-correct">0</b></span>
+      <span>不正解 <b class="bad-text" id="stat-wrong">0</b></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </header>
+
+  <div class="controls">
+    <div class="mode-toggle" id="mode-toggle">
+      <button data-mode="quiz" class="active">クイズモード</button>
+      <button data-mode="flash">復習モード（フラッシュカード）</button>
+    </div>
+    <div class="chip-row" id="chip-row"></div>
+  </div>
+
+  <div class="card" id="card">
+    <div class="card-head">
+      <span class="cat-tag" id="cat-tag"></span>
+      <span class="q-index" id="q-index"></span>
+    </div>
+
+    <div id="tree-ascii-slot"></div>
+    <pre id="code-pre" class="language-javascript"><code id="code-block" class="language-javascript"></code></pre>
+
+    <p class="prompt-text" id="prompt-text"></p>
+
+    <div class="options" id="options"></div>
+
+    <div id="flash-reveal-wrap" style="display:none;">
+      <button class="flash-reveal-btn" id="flash-reveal-btn">答えを見る</button>
+    </div>
+
+    <div class="explain" id="explain">
+      <span class="verdict" id="verdict"></span>
+      <span id="explain-text"></span>
+    </div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="prev-btn">← 前へ</button>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input class="jump-input" id="jump-input" type="text" inputmode="numeric" placeholder="#">
+        <button class="nav-btn" id="jump-btn">移動</button>
+      </div>
+      <button class="nav-btn primary" id="next-btn">次へ →</button>
+    </div>
+  </div>
+
+  <footer class="foot">全100問 &middot; 行きがけ / 帰りがけ / コンテキスト変数 / 配列構築 / 木構造 / 文字列・数値計算 / 総合応用</footer>
+</div>
+
+<script id="quiz-data" type="application/json">
+[{"id": 1, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(2);", "prompt": "trace(2) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["2 → 1 → 0", "1 → 2", "1", "2 → 1"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=2 から 1 まで、深く潜っていく順番のまま 2 → 1 と出力されます。", "hint": null}, {"id": 2, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(3);", "prompt": "trace(3) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["2 → 1", "3 → 2 → 1 → 0", "3 → 2 → 1", "1 → 2 → 3"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=3 から 1 まで、深く潜っていく順番のまま 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 3, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(4);", "prompt": "trace(4) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4", "3 → 2 → 1", "4 → 3 → 2 → 1 → 0", "4 → 3 → 2 → 1"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=4 から 1 まで、深く潜っていく順番のまま 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 4, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(5);", "prompt": "trace(5) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5", "5 → 4 → 3 → 2 → 1 → 0", "5 → 4 → 3 → 2 → 1", "4 → 3 → 2 → 1"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=5 から 1 まで、深く潜っていく順番のまま 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 5, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(6);", "prompt": "trace(6) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6", "6 → 5 → 4 → 3 → 2 → 1 → 0", "5 → 4 → 3 → 2 → 1", "6 → 5 → 4 → 3 → 2 → 1"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=6 から 1 まで、深く潜っていく順番のまま 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 6, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(7);", "prompt": "trace(7) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6 → 7", "6 → 5 → 4 → 3 → 2 → 1", "7 → 6 → 5 → 4 → 3 → 2 → 1 → 0", "7 → 6 → 5 → 4 → 3 → 2 → 1"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=7 から 1 まで、深く潜っていく順番のまま 7 → 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 7, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(8);", "prompt": "trace(8) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8", "8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "7 → 6 → 5 → 4 → 3 → 2 → 1"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=8 から 1 まで、深く潜っていく順番のまま 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 8, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(9);", "prompt": "trace(9) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9", "8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=9 から 1 まで、深く潜っていく順番のまま 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 9, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(10);", "prompt": "trace(10) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10", "9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1"], "correct": 0, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=10 から 1 まで、深く潜っていく順番のまま 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 10, "category": "pre", "categoryLabel": "行きがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(n);\n  trace(n - 1);\n}\n\ntrace(11);", "prompt": "trace(11) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["11 → 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 → 0", "10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "11 → 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の前（行きがけ）にあるので、呼ばれた瞬間にすぐ出力されます。つまり n=11 から 1 まで、深く潜っていく順番のまま 11 → 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1 と出力されます。", "hint": null}, {"id": 11, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(2);", "prompt": "trace(2) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["0 → 1 → 2", "2 → 1", "1", "1 → 2"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 2 まで昇順に 1 → 2 と出力されます。", "hint": null}, {"id": 12, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(3);", "prompt": "trace(3) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2", "0 → 1 → 2 → 3", "3 → 2 → 1", "1 → 2 → 3"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 3 まで昇順に 1 → 2 → 3 と出力されます。", "hint": null}, {"id": 13, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(4);", "prompt": "trace(4) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3", "4 → 3 → 2 → 1", "1 → 2 → 3 → 4", "0 → 1 → 2 → 3 → 4"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 4 まで昇順に 1 → 2 → 3 → 4 と出力されます。", "hint": null}, {"id": 14, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(5);", "prompt": "trace(5) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["0 → 1 → 2 → 3 → 4 → 5", "1 → 2 → 3 → 4", "5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 5 まで昇順に 1 → 2 → 3 → 4 → 5 と出力されます。", "hint": null}, {"id": 15, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(6);", "prompt": "trace(6) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6", "6 → 5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5", "0 → 1 → 2 → 3 → 4 → 5 → 6"], "correct": 0, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 6 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 と出力されます。", "hint": null}, {"id": 16, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(7);", "prompt": "trace(7) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6", "1 → 2 → 3 → 4 → 5 → 6 → 7", "0 → 1 → 2 → 3 → 4 → 5 → 6 → 7", "7 → 6 → 5 → 4 → 3 → 2 → 1"], "correct": 1, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 7 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 → 7 と出力されます。", "hint": null}, {"id": 17, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(8);", "prompt": "trace(8) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5 → 6 → 7", "0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 8 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 と出力されます。", "hint": null}, {"id": 18, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(9);", "prompt": "trace(9) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9", "0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9"], "correct": 2, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 9 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 と出力されます。", "hint": null}, {"id": 19, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(10);", "prompt": "trace(10) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9", "0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10", "10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10"], "correct": 3, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 10 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 と出力されます。", "hint": null}, {"id": 20, "category": "post", "categoryLabel": "帰りがけのみ", "code": "function trace(n) {\n  if (n === 0) return;\n  trace(n - 1);\n  console.log(n);\n}\n\ntrace(11);", "prompt": "trace(11) を実行したとき、console.log(n) の出力順として正しいものはどれか?", "options": ["1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11", "11 → 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1", "0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11", "1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10"], "correct": 0, "explanation": "console.log(n) は再帰呼び出し trace(n-1) の後（帰りがけ）にあるので、まず n=0 のベースケースまで潜ってから、戻りながら出力されます。一番奥から戻ってくる順なので 1 から 11 まで昇順に 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 と出力されます。", "hint": null}, {"id": 21, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(2);", "prompt": "trace(2) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before2 → before1 → after1 → after2", "before2 → after2 → before1 → after1", "before2 → before1 → after2 → after1", "after1 → after2 → before2 → before1"], "correct": 0, "explanation": "before は行きがけなので深く潜る順（2→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→2）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 22, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(3);", "prompt": "trace(3) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before3 → before2 → before1 → after1 → after2 → after3", "before3 → before2 → before1 → after3 → after2 → after1", "before3 → after3 → before2 → after2 → before1 → after1", "after1 → after2 → after3 → before3 → before2 → before1"], "correct": 0, "explanation": "before は行きがけなので深く潜る順（3→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→3）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 23, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(4);", "prompt": "trace(4) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["after1 → after2 → after3 → after4 → before4 → before3 → before2 → before1", "before4 → before3 → before2 → before1 → after4 → after3 → after2 → after1", "before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1", "before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4"], "correct": 3, "explanation": "before は行きがけなので深く潜る順（4→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→4）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 24, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(5);", "prompt": "trace(5) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1", "before5 → before4 → before3 → before2 → before1 → after5 → after4 → after3 → after2 → after1", "before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5", "after1 → after2 → after3 → after4 → after5 → before5 → before4 → before3 → before2 → before1"], "correct": 2, "explanation": "before は行きがけなので深く潜る順（5→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→5）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 25, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(6);", "prompt": "trace(6) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1", "before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6", "after1 → after2 → after3 → after4 → after5 → after6 → before6 → before5 → before4 → before3 → before2 → before1", "before6 → before5 → before4 → before3 → before2 → before1 → after6 → after5 → after4 → after3 → after2 → after1"], "correct": 1, "explanation": "before は行きがけなので深く潜る順（6→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→6）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 26, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(7);", "prompt": "trace(7) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["after1 → after2 → after3 → after4 → after5 → after6 → after7 → before7 → before6 → before5 → before4 → before3 → before2 → before1", "before7 → before6 → before5 → before4 → before3 → before2 → before1 → after7 → after6 → after5 → after4 → after3 → after2 → after1", "before7 → before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6 → after7", "before7 → after7 → before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1"], "correct": 2, "explanation": "before は行きがけなので深く潜る順（7→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→7）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 27, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(8);", "prompt": "trace(8) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after8 → after7 → after6 → after5 → after4 → after3 → after2 → after1", "before8 → after8 → before7 → after7 → before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1", "after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1", "before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8"], "correct": 3, "explanation": "before は行きがけなので深く潜る順（8→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→8）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 28, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(9);", "prompt": "trace(9) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1", "before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after9 → after8 → after7 → after6 → after5 → after4 → after3 → after2 → after1", "before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9", "before9 → after9 → before8 → after8 → before7 → after7 → before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1"], "correct": 2, "explanation": "before は行きがけなので深く潜る順（9→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→9）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 29, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(10);", "prompt": "trace(10) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after10 → after9 → after8 → after7 → after6 → after5 → after4 → after3 → after2 → after1", "after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9 → after10 → before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1", "before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9 → after10", "before10 → after10 → before9 → after9 → before8 → after8 → before7 → after7 → before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1"], "correct": 2, "explanation": "before は行きがけなので深く潜る順（10→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→10）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 30, "category": "both", "categoryLabel": "行きがけ＋帰りがけ", "code": "function trace(n) {\n  if (n === 0) return;\n  console.log(`before${n}`);\n  trace(n - 1);\n  console.log(`after${n}`);\n}\n\ntrace(11);", "prompt": "trace(11) を実行したとき、全体のログの出力順として正しいものはどれか?", "options": ["before11 → before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9 → after10 → after11", "after1 → after2 → after3 → after4 → after5 → after6 → after7 → after8 → after9 → after10 → after11 → before11 → before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1", "before11 → after11 → before10 → after10 → before9 → after9 → before8 → after8 → before7 → after7 → before6 → after6 → before5 → after5 → before4 → after4 → before3 → after3 → before2 → after2 → before1 → after1", "before11 → before10 → before9 → before8 → before7 → before6 → before5 → before4 → before3 → before2 → before1 → after11 → after10 → after9 → after8 → after7 → after6 → after5 → after4 → after3 → after2 → after1"], "correct": 0, "explanation": "before は行きがけなので深く潜る順（11→…→1）にそのまま出力され、その後 after は帰りがけなので浅い方から戻る順（1→…→11）で出力されます。行きがけの列がすべて終わってから帰りがけの列が始まる点に注意してください。", "hint": null}, {"id": 31, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(4);", "prompt": "factorial(4) の実行中、n=2 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=1, result=4", "sub=1, result=2", "sub=1, result=4 ", "sub=2, result=1"], "correct": 1, "explanation": "n=2 のコンテキストでは、先に sub = factorial(1) = 1 が確定します（帰りがけ）。その後 result = 2 * 1 = 2 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 32, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(4);", "prompt": "factorial(4) の実行中、n=3 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=2, result=6", "sub=2, result=9 ", "sub=2, result=9", "sub=6, result=2"], "correct": 0, "explanation": "n=3 のコンテキストでは、先に sub = factorial(2) = 2 が確定します（帰りがけ）。その後 result = 3 * 2 = 6 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 33, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(5);", "prompt": "factorial(5) の実行中、n=2 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=1, result=2", "sub=2, result=1", "sub=1, result=4", "sub=1, result=4 "], "correct": 0, "explanation": "n=2 のコンテキストでは、先に sub = factorial(1) = 1 が確定します（帰りがけ）。その後 result = 2 * 1 = 2 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 34, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(5);", "prompt": "factorial(5) の実行中、n=3 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=6, result=2", "sub=2, result=9 ", "sub=2, result=6", "sub=2, result=9"], "correct": 2, "explanation": "n=3 のコンテキストでは、先に sub = factorial(2) = 2 が確定します（帰りがけ）。その後 result = 3 * 2 = 6 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 35, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(5);", "prompt": "factorial(5) の実行中、n=4 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=24, result=6", "sub=6, result=16", "sub=6, result=24", "sub=3, result=24"], "correct": 2, "explanation": "n=4 のコンテキストでは、先に sub = factorial(3) = 6 が確定します（帰りがけ）。その後 result = 4 * 6 = 24 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 36, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(6);", "prompt": "factorial(6) の実行中、n=2 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=2, result=1", "sub=1, result=4", "sub=1, result=4 ", "sub=1, result=2"], "correct": 3, "explanation": "n=2 のコンテキストでは、先に sub = factorial(1) = 1 が確定します（帰りがけ）。その後 result = 2 * 1 = 2 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 37, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(6);", "prompt": "factorial(6) の実行中、n=4 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=24, result=6", "sub=6, result=24", "sub=6, result=16", "sub=3, result=24"], "correct": 1, "explanation": "n=4 のコンテキストでは、先に sub = factorial(3) = 6 が確定します（帰りがけ）。その後 result = 4 * 6 = 24 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 38, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(7);", "prompt": "factorial(7) の実行中、n=3 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=2, result=6", "sub=2, result=9", "sub=6, result=2", "sub=2, result=9 "], "correct": 0, "explanation": "n=3 のコンテキストでは、先に sub = factorial(2) = 2 が確定します（帰りがけ）。その後 result = 3 * 2 = 6 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 39, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(8);", "prompt": "factorial(8) の実行中、n=5 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=120, result=24", "sub=24, result=120", "sub=4, result=120", "sub=24, result=25"], "correct": 1, "explanation": "n=5 のコンテキストでは、先に sub = factorial(4) = 24 が確定します（帰りがけ）。その後 result = 5 * 24 = 120 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 40, "category": "ctx", "categoryLabel": "コンテキスト別の変数値", "code": "function factorial(n) {\n  if (n <= 1) return 1;\n  const sub = factorial(n - 1);\n  const result = n * sub;\n  return result;\n}\n\nfactorial(9);", "prompt": "factorial(9) の実行中、n=6 のコンテキストにおける sub と result の値はどれか?", "options": ["sub=5, result=720", "sub=720, result=120", "sub=120, result=36", "sub=120, result=720"], "correct": 3, "explanation": "n=6 のコンテキストでは、先に sub = factorial(5) = 120 が確定します（帰りがけ）。その後 result = 6 * 120 = 720 となります。呼び出しごと（n の値ごと）に独立した sub と result があることに注意してください。", "hint": null}, {"id": 41, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [...rest, n];\n}\n\nbuild(3);", "prompt": "build(3) の戻り値はどれか?", "options": ["[1, 2]", "[3, 2, 1]", "[1, 2, 3]", "[0, 1, 2, 3]"], "correct": 2, "explanation": "帰りがけで rest（子から返ってきた配列）の末尾に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [1, 2, 3] になります。", "hint": null}, {"id": 42, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [...rest, n];\n}\n\nbuild(4);", "prompt": "build(4) の戻り値はどれか?", "options": ["[0, 1, 2, 3, 4]", "[4, 3, 2, 1]", "[1, 2, 3, 4]", "[1, 2, 3]"], "correct": 2, "explanation": "帰りがけで rest（子から返ってきた配列）の末尾に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [1, 2, 3, 4] になります。", "hint": null}, {"id": 43, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [...rest, n];\n}\n\nbuild(5);", "prompt": "build(5) の戻り値はどれか?", "options": ["[1, 2, 3, 4]", "[5, 4, 3, 2, 1]", "[0, 1, 2, 3, 4, 5]", "[1, 2, 3, 4, 5]"], "correct": 3, "explanation": "帰りがけで rest（子から返ってきた配列）の末尾に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [1, 2, 3, 4, 5] になります。", "hint": null}, {"id": 44, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [n, ...rest];\n}\n\nbuild(3);", "prompt": "build(3) の戻り値はどれか?", "options": ["[3, 2]", "[3, 2, 1]", "[0, 3, 2, 1]", "[1, 2, 3]"], "correct": 1, "explanation": "帰りがけで rest（子から返ってきた配列）の先頭に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [3, 2, 1] になります。", "hint": null}, {"id": 45, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [n, ...rest];\n}\n\nbuild(4);", "prompt": "build(4) の戻り値はどれか?", "options": ["[1, 2, 3, 4]", "[4, 3, 2, 1]", "[4, 3, 2]", "[0, 4, 3, 2, 1]"], "correct": 1, "explanation": "帰りがけで rest（子から返ってきた配列）の先頭に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [4, 3, 2, 1] になります。", "hint": null}, {"id": 46, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function build(n) {\n  if (n === 0) return [];\n  const rest = build(n - 1);\n  return [n, ...rest];\n}\n\nbuild(5);", "prompt": "build(5) の戻り値はどれか?", "options": ["[0, 5, 4, 3, 2, 1]", "[5, 4, 3, 2, 1]", "[5, 4, 3, 2]", "[1, 2, 3, 4, 5]"], "correct": 1, "explanation": "帰りがけで rest（子から返ってきた配列）の先頭に n を追加しています。一番深い呼び出し（n=0）から順に戻りながら組み立てられるので、結果は [5, 4, 3, 2, 1] になります。", "hint": null}, {"id": 47, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 2, ...rest];\n}\n\ntransform([1, 2, 3], 0);", "prompt": "transform([1, 2, 3], 0) の戻り値はどれか?", "options": ["[3, 6, 9]", "[6, 4, 2]", "[1, 2, 3]", "[2, 4, 6]"], "correct": 3, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま double した [2, 4, 6] になります。", "hint": null}, {"id": 48, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 3, ...rest];\n}\n\ntransform([1, 2, 3], 0);", "prompt": "transform([1, 2, 3], 0) の戻り値はどれか?", "options": ["[9, 6, 3]", "[1, 2, 3]", "[3, 6, 9]", "[2, 4, 6]"], "correct": 2, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま triple した [3, 6, 9] になります。", "hint": null}, {"id": 49, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * arr[i], ...rest];\n}\n\ntransform([1, 2, 3], 0);", "prompt": "transform([1, 2, 3], 0) の戻り値はどれか?", "options": ["[2, 4, 6]", "[1, 4, 9]", "[9, 4, 1]", "[1, 2, 3]"], "correct": 1, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま square した [1, 4, 9] になります。", "hint": null}, {"id": 50, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 2, ...rest];\n}\n\ntransform([3, 1, 4], 0);", "prompt": "transform([3, 1, 4], 0) の戻り値はどれか?", "options": ["[8, 2, 6]", "[3, 1, 4]", "[9, 3, 12]", "[6, 2, 8]"], "correct": 3, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま double した [6, 2, 8] になります。", "hint": null}, {"id": 51, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 3, ...rest];\n}\n\ntransform([3, 1, 4], 0);", "prompt": "transform([3, 1, 4], 0) の戻り値はどれか?", "options": ["[6, 2, 8]", "[12, 3, 9]", "[3, 1, 4]", "[9, 3, 12]"], "correct": 3, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま triple した [9, 3, 12] になります。", "hint": null}, {"id": 52, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * arr[i], ...rest];\n}\n\ntransform([3, 1, 4], 0);", "prompt": "transform([3, 1, 4], 0) の戻り値はどれか?", "options": ["[16, 1, 9]", "[6, 2, 8]", "[3, 1, 4]", "[9, 1, 16]"], "correct": 3, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま square した [9, 1, 16] になります。", "hint": null}, {"id": 53, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 2, ...rest];\n}\n\ntransform([5, 2, 8], 0);", "prompt": "transform([5, 2, 8], 0) の戻り値はどれか?", "options": ["[10, 4, 16]", "[15, 6, 24]", "[5, 2, 8]", "[16, 4, 10]"], "correct": 0, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま double した [10, 4, 16] になります。", "hint": null}, {"id": 54, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * 3, ...rest];\n}\n\ntransform([5, 2, 8], 0);", "prompt": "transform([5, 2, 8], 0) の戻り値はどれか?", "options": ["[15, 6, 24]", "[5, 2, 8]", "[10, 4, 16]", "[24, 6, 15]"], "correct": 0, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま triple した [15, 6, 24] になります。", "hint": null}, {"id": 55, "category": "arr", "categoryLabel": "配列を組み立てる再帰", "code": "function transform(arr, i) {\n  if (i >= arr.length) return [];\n  const rest = transform(arr, i + 1);\n  return [arr[i] * arr[i], ...rest];\n}\n\ntransform([5, 2, 8], 0);", "prompt": "transform([5, 2, 8], 0) の戻り値はどれか?", "options": ["[10, 4, 16]", "[25, 4, 64]", "[5, 2, 8]", "[64, 4, 25]"], "correct": 1, "explanation": "一番深い呼び出し（配列の末尾）から先に確定し、帰りがけで加工した値を rest の先頭に追加していきます。先頭に追加しながら戻るため、最終的には元の配列の順序を保ったまま square した [25, 4, 64] になります。", "hint": null}, {"id": 56, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 1, \"children\": [{\"value\": 2, \"children\": [{\"value\": 4, \"children\": []}]}, {\"value\": 3, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "次の木構造で sumTree(tree) を実行したとき、\"visit\" ログ（console.log）の出力順として正しいものはどれか?\n\n【木の構造 T1】\n      1\n     / \\\n    2   3\n   /\n  4", "options": ["1 → 2 → 4 → 3", "1 → 2 → 3 → 4 ", "3 → 4 → 2 → 1", "1 → 2 → 3 → 4"], "correct": 0, "explanation": "visit は行きがけ（子の再帰呼び出しの前）に実行されるので、木を根から子へ、配列 children の順（左から右）に辿っていく順番でそのまま出力されます: 1 → 2 → 4 → 3", "hint": null}, {"id": 57, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 1, \"children\": [{\"value\": 2, \"children\": [{\"value\": 4, \"children\": []}]}, {\"value\": 3, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "同じ sumTree(tree) の実行中、値が 2 のノードのコンテキストで childSums と total はどうなるか?\n\n【木の構造 T1】\n      1\n     / \\\n    2   3\n   /\n  4", "options": ["childSums=[4], total=6", "childSums=[4], total=8", "childSums=[4], total=4", "childSums=[4], total=4 "], "correct": 0, "explanation": "childSums は node.children を map した結果（各子の再帰呼び出しの戻り値）の配列で [4] です。total は自分の value（2）と childSums の合計を足したもので、2 + 4 = 6 になります。", "hint": null}, {"id": 58, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 1, \"children\": [{\"value\": 2, \"children\": [{\"value\": 4, \"children\": []}]}, {\"value\": 3, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "sumTree(tree) の最終的な戻り値（木全体の合計）はいくつか?\n\n【木の構造 T1】\n      1\n     / \\\n    2   3\n   /\n  4", "options": ["9", "12", "12 ", "10"], "correct": 3, "explanation": "すべてのノードの value を合計した値が最終的な戻り値になります。木のすべての value を足すと 10 です。", "hint": null}, {"id": 59, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 5, \"children\": [{\"value\": 2, \"children\": []}, {\"value\": 8, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 3, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "次の木構造で sumTree(tree) を実行したとき、\"visit\" ログ（console.log）の出力順として正しいものはどれか?\n\n【木の構造 T2】\n        5\n       / \\\n      2   8\n         / \\\n        1   3", "options": ["1 → 2 → 3 → 5 → 8", "1 → 2 → 3 → 5 → 8 ", "3 → 1 → 8 → 2 → 5", "5 → 2 → 8 → 1 → 3"], "correct": 3, "explanation": "visit は行きがけ（子の再帰呼び出しの前）に実行されるので、木を根から子へ、配列 children の順（左から右）に辿っていく順番でそのまま出力されます: 5 → 2 → 8 → 1 → 3", "hint": null}, {"id": 60, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 5, \"children\": [{\"value\": 2, \"children\": []}, {\"value\": 8, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 3, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "同じ sumTree(tree) の実行中、値が 8 のノードのコンテキストで childSums と total はどうなるか?\n\n【木の構造 T2】\n        5\n       / \\\n      2   8\n         / \\\n        1   3", "options": ["childSums=[1, 3], total=4", "childSums=[1, 3], total=12", "childSums=[3, 1], total=12", "childSums=[1, 3], total=20"], "correct": 1, "explanation": "childSums は node.children を map した結果（各子の再帰呼び出しの戻り値）の配列で [1, 3] です。total は自分の value（8）と childSums の合計を足したもので、8 + 4 = 12 になります。", "hint": null}, {"id": 61, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 5, \"children\": [{\"value\": 2, \"children\": []}, {\"value\": 8, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 3, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "sumTree(tree) の最終的な戻り値（木全体の合計）はいくつか?\n\n【木の構造 T2】\n        5\n       / \\\n      2   8\n         / \\\n        1   3", "options": ["14", "21", "21 ", "19"], "correct": 3, "explanation": "すべてのノードの value を合計した値が最終的な戻り値になります。木のすべての value を足すと 19 です。", "hint": null}, {"id": 62, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 10, \"children\": [{\"value\": 20, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 2, \"children\": []}, {\"value\": 3, \"children\": []}]}, {\"value\": 30, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "次の木構造で sumTree(tree) を実行したとき、\"visit\" ログ（console.log）の出力順として正しいものはどれか?\n\n【木の構造 T3】\n         10\n        /  \\\n      20    30\n    / | \\\n   1  2  3", "options": ["1 → 10 → 2 → 20 → 3 → 30 ", "1 → 10 → 2 → 20 → 3 → 30", "10 → 20 → 1 → 2 → 3 → 30", "30 → 3 → 2 → 1 → 20 → 10"], "correct": 2, "explanation": "visit は行きがけ（子の再帰呼び出しの前）に実行されるので、木を根から子へ、配列 children の順（左から右）に辿っていく順番でそのまま出力されます: 10 → 20 → 1 → 2 → 3 → 30", "hint": null}, {"id": 63, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 10, \"children\": [{\"value\": 20, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 2, \"children\": []}, {\"value\": 3, \"children\": []}]}, {\"value\": 30, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "同じ sumTree(tree) の実行中、値が 20 のノードのコンテキストで childSums と total はどうなるか?\n\n【木の構造 T3】\n         10\n        /  \\\n      20    30\n    / | \\\n   1  2  3", "options": ["childSums=[1, 2, 3], total=46", "childSums=[1, 2, 3], total=6", "childSums=[1, 2, 3], total=26", "childSums=[3, 2, 1], total=26"], "correct": 2, "explanation": "childSums は node.children を map した結果（各子の再帰呼び出しの戻り値）の配列で [1, 2, 3] です。total は自分の value（20）と childSums の合計を足したもので、20 + 6 = 26 になります。", "hint": null}, {"id": 64, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 10, \"children\": [{\"value\": 20, \"children\": [{\"value\": 1, \"children\": []}, {\"value\": 2, \"children\": []}, {\"value\": 3, \"children\": []}]}, {\"value\": 30, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "sumTree(tree) の最終的な戻り値（木全体の合計）はいくつか?\n\n【木の構造 T3】\n         10\n        /  \\\n      20    30\n    / | \\\n   1  2  3", "options": ["66", "56", "86 ", "86"], "correct": 0, "explanation": "すべてのノードの value を合計した値が最終的な戻り値になります。木のすべての value を足すと 66 です。", "hint": null}, {"id": 65, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 0, \"children\": [{\"value\": 100, \"children\": []}, {\"value\": 200, \"children\": [{\"value\": 1, \"children\": []}]}, {\"value\": 300, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "次の木構造で sumTree(tree) を実行したとき、\"visit\" ログ（console.log）の出力順として正しいものはどれか?\n\n【木の構造 T4】\n          0\n     /    |    \\\n   100   200   300\n           |\n           1", "options": ["0 → 1 → 100 → 200 → 300 ", "0 → 100 → 200 → 1 → 300", "0 → 1 → 100 → 200 → 300", "300 → 1 → 200 → 100 → 0"], "correct": 1, "explanation": "visit は行きがけ（子の再帰呼び出しの前）に実行されるので、木を根から子へ、配列 children の順（左から右）に辿っていく順番でそのまま出力されます: 0 → 100 → 200 → 1 → 300", "hint": null}, {"id": 66, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 0, \"children\": [{\"value\": 100, \"children\": []}, {\"value\": 200, \"children\": [{\"value\": 1, \"children\": []}]}, {\"value\": 300, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "同じ sumTree(tree) の実行中、値が 200 のノードのコンテキストで childSums と total はどうなるか?\n\n【木の構造 T4】\n          0\n     /    |    \\\n   100   200   300\n           |\n           1", "options": ["childSums=[1], total=1", "childSums=[1], total=401", "childSums=[1], total=201", "childSums=[1], total=1 "], "correct": 2, "explanation": "childSums は node.children を map した結果（各子の再帰呼び出しの戻り値）の配列で [1] です。total は自分の value（200）と childSums の合計を足したもので、200 + 1 = 201 になります。", "hint": null}, {"id": 67, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 0, \"children\": [{\"value\": 100, \"children\": []}, {\"value\": 200, \"children\": [{\"value\": 1, \"children\": []}]}, {\"value\": 300, \"children\": []}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "sumTree(tree) の最終的な戻り値（木全体の合計）はいくつか?\n\n【木の構造 T4】\n          0\n     /    |    \\\n   100   200   300\n           |\n           1", "options": ["701", "701 ", "601", "701  "], "correct": 2, "explanation": "すべてのノードの value を合計した値が最終的な戻り値になります。木のすべての value を足すと 601 です。", "hint": null}, {"id": 68, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 7, \"children\": [{\"value\": 7, \"children\": [{\"value\": 7, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "次の木構造で sumTree(tree) を実行したとき、\"visit\" ログ（console.log）の出力順として正しいものはどれか?\n\n【木の構造 T5】\n  7\n  |\n  7\n  |\n  7", "options": ["7 → 7 → 7   ", "7 → 7 → 7 ", "7 → 7 → 7  ", "7 → 7 → 7"], "correct": 3, "explanation": "visit は行きがけ（子の再帰呼び出しの前）に実行されるので、木を根から子へ、配列 children の順（左から右）に辿っていく順番でそのまま出力されます: 7 → 7 → 7", "hint": null}, {"id": 69, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 7, \"children\": [{\"value\": 7, \"children\": [{\"value\": 7, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "同じ sumTree(tree) の実行中、値が 7 のノードのコンテキストで childSums と total はどうなるか?\n\n【木の構造 T5】\n  7\n  |\n  7\n  |\n  7", "options": ["childSums=[14], total=21", "childSums=[14], total=14 ", "childSums=[14], total=28", "childSums=[14], total=14"], "correct": 0, "explanation": "childSums は node.children を map した結果（各子の再帰呼び出しの戻り値）の配列で [14] です。total は自分の value（7）と childSums の合計を足したもので、7 + 14 = 21 になります。", "hint": null}, {"id": 70, "category": "tree", "categoryLabel": "木構造のトレース", "code": "const tree = {\"value\": 7, \"children\": [{\"value\": 7, \"children\": [{\"value\": 7, \"children\": []}]}]};\n\nfunction sumTree(node) {\n  console.log(`visit ${node.value}`);\n  if (!node.children || node.children.length === 0) {\n    return node.value;\n  }\n  const childSums = node.children.map(child => sumTree(child));\n  const total = node.value + childSums.reduce((a, b) => a + b, 0);\n  return total;\n}\n\nsumTree(tree);", "prompt": "sumTree(tree) の最終的な戻り値（木全体の合計）はいくつか?\n\n【木の構造 T5】\n  7\n  |\n  7\n  |\n  7", "options": ["14", "21", "28", "28 "], "correct": 1, "explanation": "すべてのノードの value を合計した値が最終的な戻り値になります。木のすべての value を足すと 21 です。", "hint": null}, {"id": 71, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function reverse(str) {\n  if (str === \"\") return \"\";\n  return reverse(str.slice(1)) + str[0];\n}\n\nreverse(\"code\");", "prompt": "reverse(\"code\") の戻り値はどれか?", "options": ["\"cdeo\"", "\"code\"", "\"edo\"", "\"edoc\""], "correct": 3, "explanation": "帰りがけで str[0]（先頭の文字）を末尾に追加していくので、一番深い呼び出し（空文字）から戻りながら文字が逆順に組み立てられ、\"code\" は \"edoc\" になります。", "hint": null}, {"id": 72, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function reverse(str) {\n  if (str === \"\") return \"\";\n  return reverse(str.slice(1)) + str[0];\n}\n\nreverse(\"logic\");", "prompt": "reverse(\"logic\") の戻り値はどれか?", "options": ["\"logic\"", "\"cigo\"", "\"cigol\"", "\"cgilo\""], "correct": 2, "explanation": "帰りがけで str[0]（先頭の文字）を末尾に追加していくので、一番深い呼び出し（空文字）から戻りながら文字が逆順に組み立てられ、\"logic\" は \"cigol\" になります。", "hint": null}, {"id": 73, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function reverse(str) {\n  if (str === \"\") return \"\";\n  return reverse(str.slice(1)) + str[0];\n}\n\nreverse(\"stack\");", "prompt": "reverse(\"stack\") の戻り値はどれか?", "options": ["\"ackst\"", "\"kcat\"", "\"kcats\"", "\"stack\""], "correct": 2, "explanation": "帰りがけで str[0]（先頭の文字）を末尾に追加していくので、一番深い呼び出し（空文字）から戻りながら文字が逆順に組み立てられ、\"stack\" は \"kcats\" になります。", "hint": null}, {"id": 74, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function reverse(str) {\n  if (str === \"\") return \"\";\n  return reverse(str.slice(1)) + str[0];\n}\n\nreverse(\"queue\");", "prompt": "reverse(\"queue\") の戻り値はどれか?", "options": ["\"eequu\"", "\"eueuq\"", "\"eueu\"", "\"queue\""], "correct": 1, "explanation": "帰りがけで str[0]（先頭の文字）を末尾に追加していくので、一番深い呼び出し（空文字）から戻りながら文字が逆順に組み立てられ、\"queue\" は \"eueuq\" になります。", "hint": null}, {"id": 75, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function reverse(str) {\n  if (str === \"\") return \"\";\n  return reverse(str.slice(1)) + str[0];\n}\n\nreverse(\"trace\");", "prompt": "reverse(\"trace\") の戻り値はどれか?", "options": ["\"ecar\"", "\"ecart\"", "\"trace\"", "\"acert\""], "correct": 1, "explanation": "帰りがけで str[0]（先頭の文字）を末尾に追加していくので、一番深い呼び出し（空文字）から戻りながら文字が逆順に組み立てられ、\"trace\" は \"ecart\" になります。", "hint": null}, {"id": 76, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function power(base, exp) {\n  if (exp === 0) return 1;\n  return base * power(base, exp - 1);\n}\n\npower(2, 5);", "prompt": "power(2, 5) の戻り値はいくつか?", "options": ["16", "34", "10", "32"], "correct": 3, "explanation": "power(2,5) は 2 を 5 回掛け合わせるので 2^5 = 32 です。exp が 0 になるまで再帰し、帰りがけで base を掛け合わせながら戻ります。", "hint": null}, {"id": 77, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function power(base, exp) {\n  if (exp === 0) return 1;\n  return base * power(base, exp - 1);\n}\n\npower(3, 4);", "prompt": "power(3, 4) の戻り値はいくつか?", "options": ["12", "84", "27", "81"], "correct": 3, "explanation": "power(3,4) は 3 を 4 回掛け合わせるので 3^4 = 81 です。exp が 0 になるまで再帰し、帰りがけで base を掛け合わせながら戻ります。", "hint": null}, {"id": 78, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function power(base, exp) {\n  if (exp === 0) return 1;\n  return base * power(base, exp - 1);\n}\n\npower(5, 3);", "prompt": "power(5, 3) の戻り値はいくつか?", "options": ["15", "25", "130", "125"], "correct": 3, "explanation": "power(5,3) は 5 を 3 回掛け合わせるので 5^3 = 125 です。exp が 0 になるまで再帰し、帰りがけで base を掛け合わせながら戻ります。", "hint": null}, {"id": 79, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function power(base, exp) {\n  if (exp === 0) return 1;\n  return base * power(base, exp - 1);\n}\n\npower(2, 8);", "prompt": "power(2, 8) の戻り値はいくつか?", "options": ["256", "128", "16", "258"], "correct": 0, "explanation": "power(2,8) は 2 を 8 回掛け合わせるので 2^8 = 256 です。exp が 0 になるまで再帰し、帰りがけで base を掛け合わせながら戻ります。", "hint": null}, {"id": 80, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function power(base, exp) {\n  if (exp === 0) return 1;\n  return base * power(base, exp - 1);\n}\n\npower(4, 3);", "prompt": "power(4, 3) の戻り値はいくつか?", "options": ["16", "64", "68", "12"], "correct": 1, "explanation": "power(4,3) は 4 を 3 回掛け合わせるので 4^3 = 64 です。exp が 0 になるまで再帰し、帰りがけで base を掛け合わせながら戻ります。", "hint": null}, {"id": 81, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function arraySum(arr, i) {\n  if (i >= arr.length) return 0;\n  return arr[i] + arraySum(arr, i + 1);\n}\n\narraySum([3, 5, 2], 0);", "prompt": "arraySum([3, 5, 2], 0) の戻り値はいくつか?", "options": ["30", "10", "7", "8"], "correct": 1, "explanation": "各要素 arr[i] に、残りの部分の合計（帰りがけで戻ってきた値）を足し合わせていくので、最終的に配列全体の合計 10 になります。", "hint": null}, {"id": 82, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function arraySum(arr, i) {\n  if (i >= arr.length) return 0;\n  return arr[i] + arraySum(arr, i + 1);\n}\n\narraySum([10, 20, 30], 0);", "prompt": "arraySum([10, 20, 30], 0) の戻り値はいくつか?", "options": ["60", "6000", "30", "50"], "correct": 0, "explanation": "各要素 arr[i] に、残りの部分の合計（帰りがけで戻ってきた値）を足し合わせていくので、最終的に配列全体の合計 60 になります。", "hint": null}, {"id": 83, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function arraySum(arr, i) {\n  if (i >= arr.length) return 0;\n  return arr[i] + arraySum(arr, i + 1);\n}\n\narraySum([1, 1, 1, 1], 0);", "prompt": "arraySum([1, 1, 1, 1], 0) の戻り値はいくつか?", "options": ["4", "1 ", "3", "1"], "correct": 0, "explanation": "各要素 arr[i] に、残りの部分の合計（帰りがけで戻ってきた値）を足し合わせていくので、最終的に配列全体の合計 4 になります。", "hint": null}, {"id": 84, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function arraySum(arr, i) {\n  if (i >= arr.length) return 0;\n  return arr[i] + arraySum(arr, i + 1);\n}\n\narraySum([7, 3], 0);", "prompt": "arraySum([7, 3], 0) の戻り値はいくつか?", "options": ["21", "3", "10", "7"], "correct": 2, "explanation": "各要素 arr[i] に、残りの部分の合計（帰りがけで戻ってきた値）を足し合わせていくので、最終的に配列全体の合計 10 になります。", "hint": null}, {"id": 85, "category": "calc", "categoryLabel": "文字列・数値の再帰計算", "code": "function arraySum(arr, i) {\n  if (i >= arr.length) return 0;\n  return arr[i] + arraySum(arr, i + 1);\n}\n\narraySum([4, 4, 4, 4, 4], 0);", "prompt": "arraySum([4, 4, 4, 4, 4], 0) の戻り値はいくつか?", "options": ["1024 ", "1024", "20", "16"], "correct": 2, "explanation": "各要素 arr[i] に、残りの部分の合計（帰りがけで戻ってきた値）を足し合わせていくので、最終的に配列全体の合計 20 になります。", "hint": null}, {"id": 86, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nfib(4);", "prompt": "fib(4) の戻り値はいくつか?", "options": ["2", "4", "3", "5"], "correct": 2, "explanation": "fib(4) = fib(3) + fib(2) = 2 + 1 = 3 です。2つの再帰呼び出しがそれぞれさらに枝分かれしていく点に注意してください。", "hint": null}, {"id": 87, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nfib(5);", "prompt": "fib(5) の戻り値はいくつか?", "options": ["3", "5", "8", "6"], "correct": 1, "explanation": "fib(5) = fib(4) + fib(3) = 3 + 2 = 5 です。2つの再帰呼び出しがそれぞれさらに枝分かれしていく点に注意してください。", "hint": null}, {"id": 88, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nfib(6);", "prompt": "fib(6) の戻り値はいくつか?", "options": ["5", "9", "13", "8"], "correct": 3, "explanation": "fib(6) = fib(5) + fib(4) = 5 + 3 = 8 です。2つの再帰呼び出しがそれぞれさらに枝分かれしていく点に注意してください。", "hint": null}, {"id": 89, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nfib(7);", "prompt": "fib(7) の戻り値はいくつか?", "options": ["14", "21", "13", "8"], "correct": 2, "explanation": "fib(7) = fib(6) + fib(5) = 8 + 5 = 13 です。2つの再帰呼び出しがそれぞれさらに枝分かれしていく点に注意してください。", "hint": null}, {"id": 90, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\n\nfib(8);", "prompt": "fib(8) の戻り値はいくつか?", "options": ["34", "21", "22", "13"], "correct": 1, "explanation": "fib(8) = fib(7) + fib(6) = 13 + 8 = 21 です。2つの再帰呼び出しがそれぞれさらに枝分かれしていく点に注意してください。", "hint": null}, {"id": 91, "category": "adv", "categoryLabel": "総合応用トレース", "code": "const tree = {\"val\": 1, \"left\": {\"val\": 2}, \"right\": {\"val\": 3}};\n\nfunction calc(node) {\n  console.log(`visit ${node.val}`);\n  if (!node.left && !node.right) {\n    return node.val;\n  }\n  const l = node.left ? calc(node.left) : 0;\n  const r = node.right ? calc(node.right) : 0;\n  const total = node.val + l + r;\n  console.log(`total ${node.val} = ${total}`);\n  return total;\n}\n\ncalc(tree);", "prompt": "次の二分木で calc(tree) を実行したとき、全体のログ（visit と total）の出力順として正しいものはどれか?\n\n【木の構造 B1】\n    1\n   / \\\n  2   3", "options": ["visit 1 → visit 2 → visit 3 ", "visit 1 → visit 2 → visit 3 → total 1 = 6", "visit 1 → visit 2 → visit 3", "total 1 = 6 → visit 3 → visit 2 → visit 1"], "correct": 1, "explanation": "visit は行きがけなので子を辿る前に出力され、total は帰りがけなので左右の子の計算が両方終わってから出力されます。葉ノード（子を持たないノード）は visit のみで total は出力されません。正しい順は: visit 1 → visit 2 → visit 3 → total 1 = 6", "hint": null}, {"id": 92, "category": "adv", "categoryLabel": "総合応用トレース", "code": "const tree = {\"val\": 10, \"left\": {\"val\": 5, \"left\": {\"val\": 2}}, \"right\": {\"val\": 8}};\n\nfunction calc(node) {\n  console.log(`visit ${node.val}`);\n  if (!node.left && !node.right) {\n    return node.val;\n  }\n  const l = node.left ? calc(node.left) : 0;\n  const r = node.right ? calc(node.right) : 0;\n  const total = node.val + l + r;\n  console.log(`total ${node.val} = ${total}`);\n  return total;\n}\n\ncalc(tree);", "prompt": "次の二分木で calc(tree) を実行したとき、全体のログ（visit と total）の出力順として正しいものはどれか?\n\n【木の構造 B2】\n      10\n     /  \\\n    5    8\n   /\n  2", "options": ["visit 10 → visit 5 → visit 2 → total 5 = 7 → visit 8", "total 10 = 25 → visit 8 → total 5 = 7 → visit 2 → visit 5 → visit 10", "visit 10 → visit 5 → visit 2 → visit 8 → total 5 = 7 → total 10 = 25", "visit 10 → visit 5 → visit 2 → total 5 = 7 → visit 8 → total 10 = 25"], "correct": 3, "explanation": "visit は行きがけなので子を辿る前に出力され、total は帰りがけなので左右の子の計算が両方終わってから出力されます。葉ノード（子を持たないノード）は visit のみで total は出力されません。正しい順は: visit 10 → visit 5 → visit 2 → total 5 = 7 → visit 8 → total 10 = 25", "hint": null}, {"id": 93, "category": "adv", "categoryLabel": "総合応用トレース", "code": "const tree = {\"val\": 4, \"left\": {\"val\": 1}, \"right\": {\"val\": 2, \"right\": {\"val\": 9}}};\n\nfunction calc(node) {\n  console.log(`visit ${node.val}`);\n  if (!node.left && !node.right) {\n    return node.val;\n  }\n  const l = node.left ? calc(node.left) : 0;\n  const r = node.right ? calc(node.right) : 0;\n  const total = node.val + l + r;\n  console.log(`total ${node.val} = ${total}`);\n  return total;\n}\n\ncalc(tree);", "prompt": "次の二分木で calc(tree) を実行したとき、全体のログ（visit と total）の出力順として正しいものはどれか?\n\n【木の構造 B3】\n    4\n   / \\\n  1   2\n       \\\n        9", "options": ["visit 4 → visit 1 → visit 2 → visit 9 → total 2 = 11 ", "total 4 = 16 → total 2 = 11 → visit 9 → visit 2 → visit 1 → visit 4", "visit 4 → visit 1 → visit 2 → visit 9 → total 2 = 11 → total 4 = 16", "visit 4 → visit 1 → visit 2 → visit 9 → total 2 = 11"], "correct": 2, "explanation": "visit は行きがけなので子を辿る前に出力され、total は帰りがけなので左右の子の計算が両方終わってから出力されます。葉ノード（子を持たないノード）は visit のみで total は出力されません。正しい順は: visit 4 → visit 1 → visit 2 → visit 9 → total 2 = 11 → total 4 = 16", "hint": null}, {"id": 94, "category": "adv", "categoryLabel": "総合応用トレース", "code": "const tree = {\"val\": 100, \"left\": {\"val\": 50}, \"right\": {\"val\": 25, \"left\": {\"val\": 5}, \"right\": {\"val\": 5}}};\n\nfunction calc(node) {\n  console.log(`visit ${node.val}`);\n  if (!node.left && !node.right) {\n    return node.val;\n  }\n  const l = node.left ? calc(node.left) : 0;\n  const r = node.right ? calc(node.right) : 0;\n  const total = node.val + l + r;\n  console.log(`total ${node.val} = ${total}`);\n  return total;\n}\n\ncalc(tree);", "prompt": "次の二分木で calc(tree) を実行したとき、全体のログ（visit と total）の出力順として正しいものはどれか?\n\n【木の構造 B4】\n       100\n      /   \\\n    50     25\n           / \\\n          5   5", "options": ["visit 100 → visit 50 → visit 25 → visit 5 → visit 5 → total 25 = 35 → total 100 = 185", "visit 100 → visit 50 → visit 25 → visit 5 → visit 5 → total 25 = 35", "visit 100 → visit 50 → visit 25 → visit 5 → visit 5 → total 25 = 35 ", "total 100 = 185 → total 25 = 35 → visit 5 → visit 5 → visit 25 → visit 50 → visit 100"], "correct": 0, "explanation": "visit は行きがけなので子を辿る前に出力され、total は帰りがけなので左右の子の計算が両方終わってから出力されます。葉ノード（子を持たないノード）は visit のみで total は出力されません。正しい順は: visit 100 → visit 50 → visit 25 → visit 5 → visit 5 → total 25 = 35 → total 100 = 185", "hint": null}, {"id": 95, "category": "adv", "categoryLabel": "総合応用トレース", "code": "const tree = {\"val\": 3, \"left\": {\"val\": 4, \"left\": {\"val\": 5, \"left\": {\"val\": 6}}}};\n\nfunction calc(node) {\n  console.log(`visit ${node.val}`);\n  if (!node.left && !node.right) {\n    return node.val;\n  }\n  const l = node.left ? calc(node.left) : 0;\n  const r = node.right ? calc(node.right) : 0;\n  const total = node.val + l + r;\n  console.log(`total ${node.val} = ${total}`);\n  return total;\n}\n\ncalc(tree);", "prompt": "次の二分木で calc(tree) を実行したとき、全体のログ（visit と total）の出力順として正しいものはどれか?\n\n【木の構造 B5】\n  3\n /\n4\n/\n5\n/\n6", "options": ["visit 3 → visit 4 → visit 5 → visit 6 → total 5 = 11 → total 4 = 15 → total 3 = 18", "visit 3 → visit 4 → visit 5 → visit 6 → total 5 = 11 → total 4 = 15 ", "visit 3 → visit 4 → visit 5 → visit 6 → total 5 = 11 → total 4 = 15", "total 3 = 18 → total 4 = 15 → total 5 = 11 → visit 6 → visit 5 → visit 4 → visit 3"], "correct": 0, "explanation": "visit は行きがけなので子を辿る前に出力され、total は帰りがけなので左右の子の計算が両方終わってから出力されます。葉ノード（子を持たないノード）は visit のみで total は出力されません。正しい順は: visit 3 → visit 4 → visit 5 → visit 6 → total 5 = 11 → total 4 = 15 → total 3 = 18", "hint": null}, {"id": 96, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function sumRange(arr, start, end) {\n  if (start > end) return 0;\n  if (start === end) return arr[start];\n  const mid = Math.floor((start + end) / 2);\n  const leftSum = sumRange(arr, start, mid);\n  const rightSum = sumRange(arr, mid + 1, end);\n  return leftSum + rightSum;\n}\n\nsumRange([1, 2, 3, 4], 0, 3);", "prompt": "sumRange([1, 2, 3, 4], 0, 3) の戻り値はいくつか?", "options": ["4", "10", "9", "14"], "correct": 1, "explanation": "配列を半分に分割して2つの再帰呼び出し（leftSum, rightSum）で合計を求め、最後に足し合わせています。分割の仕方に関わらず、最終的には配列全体の合計 10 になります。", "hint": null}, {"id": 97, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function sumRange(arr, start, end) {\n  if (start > end) return 0;\n  if (start === end) return arr[start];\n  const mid = Math.floor((start + end) / 2);\n  const leftSum = sumRange(arr, start, mid);\n  const rightSum = sumRange(arr, mid + 1, end);\n  return leftSum + rightSum;\n}\n\nsumRange([5, 10, 15], 0, 2);", "prompt": "sumRange([5, 10, 15], 0, 2) の戻り値はいくつか?", "options": ["15", "45", "25", "30"], "correct": 3, "explanation": "配列を半分に分割して2つの再帰呼び出し（leftSum, rightSum）で合計を求め、最後に足し合わせています。分割の仕方に関わらず、最終的には配列全体の合計 30 になります。", "hint": null}, {"id": 98, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function sumRange(arr, start, end) {\n  if (start > end) return 0;\n  if (start === end) return arr[start];\n  const mid = Math.floor((start + end) / 2);\n  const leftSum = sumRange(arr, start, mid);\n  const rightSum = sumRange(arr, mid + 1, end);\n  return leftSum + rightSum;\n}\n\nsumRange([2, 4, 6, 8, 10], 0, 4);", "prompt": "sumRange([2, 4, 6, 8, 10], 0, 4) の戻り値はいくつか?", "options": ["28", "40", "10", "30"], "correct": 3, "explanation": "配列を半分に分割して2つの再帰呼び出し（leftSum, rightSum）で合計を求め、最後に足し合わせています。分割の仕方に関わらず、最終的には配列全体の合計 30 になります。", "hint": null}, {"id": 99, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function sumRange(arr, start, end) {\n  if (start > end) return 0;\n  if (start === end) return arr[start];\n  const mid = Math.floor((start + end) / 2);\n  const leftSum = sumRange(arr, start, mid);\n  const rightSum = sumRange(arr, mid + 1, end);\n  return leftSum + rightSum;\n}\n\nsumRange([100, 200], 0, 1);", "prompt": "sumRange([100, 200], 0, 1) の戻り値はいくつか?", "options": ["500 ", "200", "300", "500"], "correct": 2, "explanation": "配列を半分に分割して2つの再帰呼び出し（leftSum, rightSum）で合計を求め、最後に足し合わせています。分割の仕方に関わらず、最終的には配列全体の合計 300 になります。", "hint": null}, {"id": 100, "category": "adv", "categoryLabel": "総合応用トレース", "code": "function sumRange(arr, start, end) {\n  if (start > end) return 0;\n  if (start === end) return arr[start];\n  const mid = Math.floor((start + end) / 2);\n  const leftSum = sumRange(arr, start, mid);\n  const rightSum = sumRange(arr, mid + 1, end);\n  return leftSum + rightSum;\n}\n\nsumRange([3, 3, 3, 3, 3, 3], 0, 5);", "prompt": "sumRange([3, 3, 3, 3, 3, 3], 0, 5) の戻り値はいくつか?", "options": ["21", "15", "21 ", "18"], "correct": 3, "explanation": "配列を半分に分割して2つの再帰呼び出し（leftSum, rightSum）で合計を求め、最後に足し合わせています。分割の仕方に関わらず、最終的には配列全体の合計 18 になります。", "hint": null}]
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  const RAW = document.getElementById('quiz-data').textContent;
+  const QUESTIONS = JSON.parse(RAW);
+
+  const CATS = [
+    { id: 'all',  label: '全て',              color: '#E8B339' },
+    { id: 'pre',  label: '行きがけのみ',        color: '#4FD1C5' },
+    { id: 'post', label: '帰りがけのみ',        color: '#7C9EFF' },
+    { id: 'both', label: '行き＋帰り',          color: '#C792EA' },
+    { id: 'ctx',  label: 'コンテキスト変数',     color: '#FF9F68' },
+    { id: 'arr',  label: '配列構築',           color: '#6EE7B7' },
+    { id: 'tree', label: '木構造',             color: '#F6C177' },
+    { id: 'calc', label: '文字列・数値計算',     color: '#87CEFA' },
+    { id: 'adv',  label: '総合応用',           color: '#FF7A7A' },
+  ];
+
+  const catMeta = {};
+  CATS.forEach(c => catMeta[c.id] = c);
+
+  // ---------- state ----------
+  let state = {
+    mode: 'quiz',            // 'quiz' | 'flash'
+    filter: 'all',
+    order: QUESTIONS.map(q => q.id),
+    pos: 0,                  // index into `order`
+    answers: {},              // id -> { chosenIndex, correct }
+    revealed: {}              // id -> true (flashcard revealed)
+  };
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem('recursion-quiz-state-v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        state.answers = parsed.answers || {};
+        state.revealed = parsed.revealed || {};
+      }
+    } catch (e) { /* ignore */ }
+  }
+  function saveState() {
+    try {
+      localStorage.setItem('recursion-quiz-state-v1', JSON.stringify({
+        answers: state.answers,
+        revealed: state.revealed
+      }));
+    } catch (e) { /* ignore */ }
+  }
+  loadState();
+
+  function currentOrder() {
+    if (state.filter === 'all') return QUESTIONS.map(q => q.id);
+    return QUESTIONS.filter(q => q.category === state.filter).map(q => q.id);
+  }
+
+  function byId(id) { return QUESTIONS.find(q => q.id === id); }
+
+  // ---------- DOM refs ----------
+  const chipRow = document.getElementById('chip-row');
+  const catTag = document.getElementById('cat-tag');
+  const qIndex = document.getElementById('q-index');
+  const codeBlock = document.getElementById('code-block');
+  const codePre = document.getElementById('code-pre');
+  const treeSlot = document.getElementById('tree-ascii-slot');
+  const promptText = document.getElementById('prompt-text');
+  const optionsEl = document.getElementById('options');
+  const explainEl = document.getElementById('explain');
+  const verdictEl = document.getElementById('verdict');
+  const explainTextEl = document.getElementById('explain-text');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const jumpInput = document.getElementById('jump-input');
+  const jumpBtn = document.getElementById('jump-btn');
+  const flashRevealWrap = document.getElementById('flash-reveal-wrap');
+  const flashRevealBtn = document.getElementById('flash-reveal-btn');
+  const statProgress = document.getElementById('stat-progress');
+  const statCorrect = document.getElementById('stat-correct');
+  const statWrong = document.getElementById('stat-wrong');
+  const progressFill = document.getElementById('progress-fill');
+  const modeToggle = document.getElementById('mode-toggle');
+
+  // ---------- chips ----------
+  function renderChips() {
+    chipRow.innerHTML = '';
+    CATS.forEach(c => {
+      const count = c.id === 'all' ? QUESTIONS.length : QUESTIONS.filter(q => q.category === c.id).length;
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.type = 'button';
+      chip.style.setProperty('--cat-color', c.color);
+      chip.dataset.active = String(state.filter === c.id);
+      chip.innerHTML = c.label + '<span class="count">' + count + '</span>';
+      chip.addEventListener('click', () => {
+        state.filter = c.id;
+        state.order = currentOrder();
+        state.pos = 0;
+        renderChips();
+        renderQuestion();
+      });
+      chipRow.appendChild(chip);
+    });
+  }
+
+  // ---------- mode toggle ----------
+  modeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-mode]');
+    if (!btn) return;
+    state.mode = btn.dataset.mode;
+    [...modeToggle.querySelectorAll('button')].forEach(b => b.classList.toggle('active', b === btn));
+    renderQuestion();
+  });
+
+  // ---------- stats ----------
+  function renderStats() {
+    const answered = Object.keys(state.answers).length;
+    const correct = Object.values(state.answers).filter(a => a.correct).length;
+    const wrong = answered - correct;
+    statProgress.textContent = answered + ' / ' + QUESTIONS.length;
+    statCorrect.textContent = String(correct);
+    statWrong.textContent = String(wrong);
+    progressFill.style.width = (answered / QUESTIONS.length * 100).toFixed(1) + '%';
+  }
+
+  // ---------- render question ----------
+  function renderQuestion() {
+    if (state.order.length === 0) { state.order = currentOrder(); }
+    if (state.pos >= state.order.length) state.pos = state.order.length - 1;
+    if (state.pos < 0) state.pos = 0;
+
+    const id = state.order[state.pos];
+    const q = byId(id);
+    const meta = catMeta[q.category];
+
+    catTag.textContent = meta.label;
+    catTag.style.setProperty('--cat-color', meta.color);
+    qIndex.textContent = (state.pos + 1) + ' / ' + state.order.length + '　（全体 #' + q.id + '）';
+
+    // split tree ascii block out of prompt if present
+    let promptStr = q.prompt;
+    let asciiBlock = '';
+    const asciiMatch = promptStr.match(/【木の構造[\s\S]*$/);
+    if (asciiMatch) {
+      asciiBlock = asciiMatch[0];
+      promptStr = promptStr.slice(0, asciiMatch.index).trim();
+    }
+    if (asciiBlock) {
+      treeSlot.innerHTML = '<div class="tree-ascii"></div>';
+      treeSlot.querySelector('.tree-ascii').textContent = asciiBlock;
+    } else {
+      treeSlot.innerHTML = '';
+    }
+
+    promptText.textContent = promptStr;
+
+    codeBlock.textContent = q.code;
+    codeBlock.className = 'language-javascript';
+    if (window.Prism) { Prism.highlightElement(codeBlock); }
+
+    // reset explain
+    explainEl.classList.remove('show');
+    verdictEl.textContent = '';
+    verdictEl.className = 'verdict';
+    explainTextEl.textContent = '';
+
+    optionsEl.innerHTML = '';
+    flashRevealWrap.style.display = 'none';
+
+    const prevAnswer = state.answers[q.id];
+    const flashRevealed = !!state.revealed[q.id];
+
+    if (state.mode === 'quiz') {
+      q.options.forEach((optText, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.type = 'button';
+        btn.textContent = optText;
+        optionsEl.appendChild(btn);
+
+        if (prevAnswer) {
+          btn.disabled = true;
+          if (i === q.correct) btn.classList.add('correct');
+          if (i === prevAnswer.chosenIndex && i !== q.correct) btn.classList.add('incorrect');
+        } else {
+          btn.addEventListener('click', () => {
+            const isCorrect = (i === q.correct);
+            state.answers[q.id] = { chosenIndex: i, correct: isCorrect };
+            saveState();
+            renderStats();
+            renderQuestion();
+          });
+        }
+      });
+
+      if (prevAnswer) {
+        showExplain(prevAnswer.correct, q.explanation);
+      }
+    } else {
+      // flashcard mode: show options as plain reference list (non-interactive), reveal button shows answer
+      q.options.forEach((optText, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.type = 'button';
+        btn.textContent = optText;
+        btn.disabled = true;
+        if (flashRevealed && i === q.correct) btn.classList.add('reveal-correct');
+        optionsEl.appendChild(btn);
+      });
+
+      if (!flashRevealed) {
+        flashRevealWrap.style.display = 'block';
+      } else {
+        showExplain(true, q.explanation, true);
+      }
+    }
+  }
+
+  flashRevealBtn.addEventListener('click', () => {
+    const id = state.order[state.pos];
+    state.revealed[id] = true;
+    saveState();
+    renderQuestion();
+  });
+
+  function showExplain(correct, text, isFlash) {
+    explainEl.classList.add('show');
+    if (isFlash) {
+      verdictEl.textContent = '解説';
+      verdictEl.classList.add('good');
+    } else {
+      verdictEl.textContent = correct ? '正解!' : '不正解';
+      verdictEl.classList.add(correct ? 'good' : 'bad');
+    }
+    explainTextEl.textContent = text;
+  }
+
+  // ---------- nav ----------
+  prevBtn.addEventListener('click', () => {
+    state.pos = Math.max(0, state.pos - 1);
+    renderQuestion();
+    scrollToCard();
+  });
+  nextBtn.addEventListener('click', () => {
+    state.pos = Math.min(state.order.length - 1, state.pos + 1);
+    renderQuestion();
+    scrollToCard();
+  });
+  jumpBtn.addEventListener('click', doJump);
+  jumpInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJump(); });
+  function doJump() {
+    const n = parseInt(jumpInput.value, 10);
+    if (!isNaN(n) && n >= 1 && n <= state.order.length) {
+      state.pos = n - 1;
+      renderQuestion();
+      scrollToCard();
+    }
+    jumpInput.value = '';
+  }
+  function scrollToCard() {
+    document.getElementById('card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------- init ----------
+  state.order = currentOrder();
+  renderChips();
+  renderStats();
+  renderQuestion();
+})();
+</script>
+</body>
+</html>
